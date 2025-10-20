@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<title>Mönchshoftreuen Bierzähler</title>
+<style>
+    body {
+        background-image: url('https://i.imgur.com/1z6uQ2b.jpeg'); /* Holzhintergrund */
+        background-size: cover;
+        font-family: Arial, sans-serif;
+        text-align: center;
+        color: #fff;
+        padding-top: 50px;
+    }
+    h1 {
+        font-size: 48px;
+        text-shadow: 2px 2px 5px black;
+    }
+    #counter {
+        font-size: 80px;
+        font-weight: bold;
+        margin: 20px 0;
+        background: rgba(0,0,0,0.6);
+        display: inline-block;
+        padding: 20px 40px;
+        border-radius: 10px;
+    }
+    button {
+        font-size: 40px;
+        padding: 20px 50px;
+        border: none;
+        border-radius: 10px;
+        background: green;
+        color: white;
+        cursor: pointer;
+        box-shadow: 0px 5px 10px rgba(0,0,0,0.5);
+    }
+    button:active {
+        transform: scale(0.95);
+    }
+</style>
+</head>
+<body>
+
+<h1>🍺 Fanclub Mönchshoftreuen 🍺</h1>
+<div id="counter">0</div><br>
+<button onclick="addBeer()">+1 Bier</button>
+
+<script>
+    let count = localStorage.getItem("biercount") ? parseInt(localStorage.getItem("biercount")) : 0;
+    document.getElementById("counter").innerText = count;
+
+    function addBeer() {
+        count++;
+        document.getElementById("counter").innerText = count;
+        localStorage.setItem("biercount", count);
+    }
+</script>
+
+</body>
+</html>
