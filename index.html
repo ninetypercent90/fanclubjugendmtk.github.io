@@ -2,158 +2,162 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fanclub Mönchshoftreuen Bierzähler</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fanclub Bierzähler</title>
 <style>
-    body {
-        background-image: url('https://i.imgur.com/1z6uQ2b.jpeg');
-        background-size: cover;
-        font-family: Arial, sans-serif;
-        text-align: center;
-        color: #fff;
-        padding: 40px;
-    }
-    h1 {
-        font-size: 42px;
-        text-shadow: 2px 2px 6px #000;
-    }
-    #counter {
-        font-size: 80px;
-        font-weight: bold;
-        margin: 20px 0;
-        background: rgba(0,0,0,0.6);
-        display: inline-block;
-        padding: 20px 60px;
-        border-radius: 10px;
-        box-shadow: 0 0 10px #000;
-    }
-    button {
-        font-size: 28px;
-        margin: 10px;
-        padding: 15px 35px;
-        border: none;
-        border-radius: 10px;
-        cursor: pointer;
-        color: white;
-        box-shadow: 0 5px 10px rgba(0,0,0,0.5);
-    }
-    #plusBtn { background: green; }
-    #minusBtn { background: darkred; }
-    #resetBtn { background: gray; }
-    select {
-        font-size: 20px;
-        padding: 8px;
-        border-radius: 8px;
-        margin-top: 20px;
-    }
-    #weekly {
-        margin-top: 30px;
-        background: rgba(0,0,0,0.6);
-        display: inline-block;
-        padding: 20px;
-        border-radius: 10px;
-        text-align: left;
-    }
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    color: #fff;
+    background: #11491f url('https://upload.wikimedia.org/wikipedia/commons/6/6b/Soccer_pitch_blank.svg') center/cover no-repeat;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 300px;
+    height: 300px;
+    background: url('https://upload.wikimedia.org/wikipedia/commons/5/5d/1._FC_Nürnberg_logo_white.svg') center/contain no-repeat;
+    opacity: 0.15;
+    transform: translate(-50%,-50%);
+    z-index: 0;
+  }
+  main { position: relative; z-index: 1; padding: 30px; }
+  header img { width:120px; }
+  h1 { text-shadow: 2px 2px 6px #000; }
+  form, ul, table { margin: 20px auto; }
+  input, button {
+    font-size: 18px;
+    padding: 8px 12px;
+    margin: 5px;
+    border-radius: 6px;
+    border: none;
+  }
+  button { cursor: pointer; background: #006400; color: #fff; }
+  ul { list-style: none; padding: 0; }
+  li { padding: 6px; background: rgba(0,0,0,0.4); margin:4px auto; width:220px; border-radius:8px; cursor:pointer;}
+  #counterArea button { font-size: 24px; padding: 10px 20px; margin:10px;}
+  #counter { font-size: 60px; margin:10px; background:rgba(0,0,0,0.5); display:inline-block; padding:10px 40px; border-radius:12px;}
+  table { border-collapse: collapse; background:rgba(0,0,0,0.5);}
+  th,td { padding:6px 12px; border-bottom:1px solid #333;}
 </style>
 </head>
 <body>
+<main>
+  <header>
+    <img src="https://upload.wikimedia.org/wikipedia/commons/5/5d/1._FC_Nürnberg_logo_white.svg" alt="Logo" />
+    <h1>🍺 Fanclub Bierzähler 🍺</h1>
+  </header>
 
-<h1>🍺 Fanclub Mönchshoftreuen 🍺</h1>
+  <form id="addGroupForm">
+    <input name="groupname" placeholder="Neue Gruppe …" required />
+    <button>Erstellen</button>
+  </form>
 
-<!-- Gruppenauswahl -->
-<label for="group">Gruppe wählen:</label>
-<select id="group" onchange="switchGroup()">
-    <option>Heimspiel</option>
-    <option>Auswärts</option>
-    <option>Stammtisch</option>
-</select>
+  <ul id="groupList"></ul>
 
-<div id="counter">0</div><br>
-<button id="plusBtn" onclick="addBeer()">+1 Bier</button>
-<button id="minusBtn" onclick="removeBeer()">-1 Bier</button>
-<button id="resetBtn" onclick="resetBeer()">Reset</button>
+  <div id="counterArea" style="display:none">
+    <h2 id="groupTitle"></h2>
+    <div id="counter">0</div><br/>
+    <button id="plus">+1</button>
+    <button id="minus">–1</button>
+    <button id="reset">Reset</button>
+  </div>
 
-<div id="weekly">
-    <h3>Wochenübersicht</h3>
-    <ul id="weekList"></ul>
-</div>
+  <h2>Gesamtstatistik</h2>
+  <table id="totalTable"></table>
 
-<script>
-    const counterEl = document.getElementById("counter");
-    const weekList = document.getElementById("weekList");
-    const groupSelect = document.getElementById("group");
+  <button id="masterReset" style="margin-top:25px;background:#880000;">Alles zurücksetzen (Admin)</button>
+</main>
 
-    // Daten aus localStorage laden
-    let data = JSON.parse(localStorage.getItem("bierData")) || {
-        Heimspiel: { count: 0, weeks: {} },
-        Auswärts: { count: 0, weeks: {} },
-        Stammtisch: { count: 0, weeks: {} }
-    };
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import { getDatabase, ref, set, update, onValue, remove } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
-    let currentGroup = groupSelect.value;
+// 👉 Trage hier deine eigenen Firebase-Daten ein:
+const firebaseConfig = {
+  apiKey: "AIzaSyBM7AlrSKiqZgyiza0CrrQSTowmAw_3SyY",
+  databaseURL: "https://fanclub-biercounter-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "fanclub-biercounter"
+};
 
-    // Woche bestimmen (ISO-Kalenderwoche)
-    function getWeekNumber(d = new Date()) {
-        d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-        const dayNum = d.getUTCDay() || 7;
-        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-        return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// ---- Benutzername festlegen ----
+let username = localStorage.getItem("username");
+if (!username) {
+  username = prompt("Wie heißt du?");
+  localStorage.setItem("username", username);
+}
+const isAdmin = (username.toLowerCase() === "marvin" || username.toLowerCase() === "admin");
+
+// ---- DOM-Elemente ----
+const groupList = document.getElementById("groupList");
+const addGroupForm = document.getElementById("addGroupForm");
+const totalTable = document.getElementById("totalTable");
+const masterResetBtn = document.getElementById("masterReset");
+masterResetBtn.style.display = isAdmin ? "inline-block" : "none";
+
+// ---- Gruppen live anzeigen ----
+onValue(ref(db, "groups"), snap => {
+  const data = snap.val() || {};
+  groupList.innerHTML = "";
+  totalTable.innerHTML = "<tr><th>Name</th><th>Gesamt</th></tr>";
+  const totals = {};
+  for (const [gname, members] of Object.entries(data)) {
+    const li = document.createElement("li");
+    const sum = Object.values(members).reduce((s,v)=>s+(v.count||0),0);
+    li.textContent = `${gname} (${sum} Bier)`;
+    li.onclick = ()=>openGroup(gname);
+    groupList.appendChild(li);
+    for (const [member,obj] of Object.entries(members)) {
+      totals[member]=(totals[member]||0)+(obj.count||0);
     }
+  }
+  for (const [n,sum] of Object.entries(totals)) {
+    const row=document.createElement("tr");
+    row.innerHTML=`<td>${n}</td><td>${sum}</td>`;
+    totalTable.appendChild(row);
+  }
+});
 
-    function updateDisplay() {
-        counterEl.textContent = data[currentGroup].count;
-        renderWeekList();
-        localStorage.setItem("bierData", JSON.stringify(data));
-    }
+// ---- Neue Gruppe anlegen ----
+addGroupForm.onsubmit = e => {
+  e.preventDefault();
+  const name = e.target.groupname.value.trim();
+  if (!name) return;
+  set(ref(db, "groups/"+name), {});
+  e.target.reset();
+};
 
-    function addBeer() {
-        data[currentGroup].count++;
-        const week = getWeekNumber();
-        data[currentGroup].weeks[week] = (data[currentGroup].weeks[week] || 0) + 1;
-        updateDisplay();
-    }
+// ---- Gruppe öffnen & zählen ----
+function openGroup(gname){
+  const userRef = ref(db,"groups/"+gname+"/"+username);
+  onValue(userRef,snap=>{
+    document.getElementById("counter").textContent=(snap.val()?.count)||0;
+  });
+  document.getElementById("counterArea").style.display="block";
+  document.getElementById("groupTitle").textContent=gname;
+  document.getElementById("plus").onclick=()=>changeCount(userRef,1);
+  document.getElementById("minus").onclick=()=>changeCount(userRef,-1);
+  document.getElementById("reset").onclick=()=>set(userRef,{count:0});
+}
 
-    function removeBeer() {
-        if (data[currentGroup].count > 0) {
-            data[currentGroup].count--;
-            const week = getWeekNumber();
-            if (data[currentGroup].weeks[week] > 0)
-                data[currentGroup].weeks[week]--;
-            updateDisplay();
-        }
-    }
+function changeCount(refUser,delta){
+  onValue(refUser,snap=>{
+    const val=(snap.val()?.count||0)+delta;
+    if(val>=0) update(refUser,{count:val});
+  },{onlyOnce:true});
+}
 
-    function resetBeer() {
-        if (confirm("Bist du sicher, dass du den Zähler für " + currentGroup + " zurücksetzen willst?")) {
-            data[currentGroup].count = 0;
-            data[currentGroup].weeks = {};
-            updateDisplay();
-        }
-    }
-
-    function switchGroup() {
-        currentGroup = groupSelect.value;
-        updateDisplay();
-    }
-
-    function renderWeekList() {
-        weekList.innerHTML = "";
-        const weeks = data[currentGroup].weeks;
-        const sortedWeeks = Object.keys(weeks).sort((a,b) => b - a);
-        if (sortedWeeks.length === 0) {
-            weekList.innerHTML = "<li>Keine Daten bisher 🍻</li>";
-            return;
-        }
-        sortedWeeks.forEach(w => {
-            const li = document.createElement("li");
-            li.textContent = "KW " + w + ": " + weeks[w] + " Bier";
-            weekList.appendChild(li);
-        });
-    }
-
-    updateDisplay();
+// ---- Gesamten Datensatz löschen (nur Admin) ----
+masterResetBtn.onclick = ()=>{
+  if(!isAdmin){ alert("Nur der Admin darf das!"); return; }
+  if(confirm("Wirklich ALLES löschen?")) remove(ref(db,"groups"));
+};
 </script>
-
 </body>
 </html>
